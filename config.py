@@ -19,4 +19,4 @@ class Config:
     PUSHER_SECRET = os.environ.get('PUSHER_SECRET')
     PUSHER_CLUSTER = os.environ.get('PUSHER_CLUSTER')
     
-    APP_BASE_URL = os.environ.get('APP_BASE_URL', 'http://localhost:5000')
+    APP_BASE_URL = os.environ.get('APP_BASE_URL', 'https://Ahmdnoaman.pythonanywhere.com')
