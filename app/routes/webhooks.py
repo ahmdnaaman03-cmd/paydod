@@ -2,7 +2,6 @@ import stripe
 from flask import Blueprint, request, jsonify, current_app
 from app import db
 from app.models import Payment
-import pusher
 
 webhooks_bp = Blueprint('webhooks', __name__, url_prefix='/webhooks')
 
@@ -22,30 +21,11 @@ def stripe_webhook():
 
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
-        handle_checkout_session(session)
+        session_id = session.get('id')
+        
+        payment = Payment.query.filter_by(stripe_checkout_session_id=session_id).first()
+        if payment:
+            payment.payment_status = 'paid'
+            db.session.commit()
 
     return jsonify({'status': 'success'}), 200
-
-def handle_checkout_session(session):
-    session_id = session.get('id')
-    payment = Payment.query.filter_by(stripe_checkout_session_id=session_id).first()
-
-    if payment:
-        payment.payment_status = 'paid'
-        db.session.commit()
-
-        try:
-            pusher_client = pusher.Pusher(
-                app_id=current_app.config.get('PUSHER_APP_ID'),
-                key=current_app.config.get('PUSHER_KEY'),
-                secret=current_app.config.get('PUSHER_SECRET'),
-                cluster=current_app.config.get('PUSHER_CLUSTER'),
-                ssl=True
-            )
-            pusher_client.trigger(
-                f"order-{payment.public_id}",
-                'payment-success',
-                {'message': 'Payment successful', 'public_id': payment.public_id}
-            )
-        except Exception as e:
-            current_app.logger.error(f"Pusher error: {e}")
