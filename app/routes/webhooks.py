@@ -2,7 +2,8 @@ import requests
 import stripe
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
-from app.models import db, Payment
+from app.extensions import db
+from app.models import Payment
 
 webhooks_bp = Blueprint('webhooks', __name__)
 
