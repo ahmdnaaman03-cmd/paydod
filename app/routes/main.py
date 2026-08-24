@@ -6,17 +6,12 @@ main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
 def index():
-    return jsonify({'status': 'online', 'service': 'PayDOD API'}), 200
+    return render_template('create_payment.html')
 
 @main_bp.route('/pay/<public_id>')
 def pay_view(public_id):
     payment = Payment.query.filter_by(public_id=public_id).first_or_404()
-    return jsonify({
-        'public_id': payment.public_id,
-        'amount': payment.amount,
-        'currency': payment.currency,
-        'status': payment.payment_status
-    }), 200
+    return render_template('pay.html', payment=payment)
 
 @main_bp.route('/api/payment-status/<public_id>')
 def payment_status(public_id):
