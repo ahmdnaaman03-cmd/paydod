@@ -27,7 +27,6 @@ def stripe_webhook():
 
 def handle_checkout_session(session):
     session_id = session.get('id')
-    
     payment = Payment.query.filter_by(stripe_checkout_session_id=session_id).first()
 
     if payment:
