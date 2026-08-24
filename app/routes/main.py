@@ -1,5 +1,4 @@
-from flask import Blueprint, jsonify, render_template, request, current_app
-from app.extensions import db
+from flask import Blueprint, jsonify, render_template
 from app.models import Payment
 
 main_bp = Blueprint('main', __name__)
