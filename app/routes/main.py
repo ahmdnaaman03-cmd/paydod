@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify
+from app import db
 from app.models.payment import Payment
 
 main_bp = Blueprint('main', __name__)
@@ -10,6 +11,12 @@ def index():
 @main_bp.route('/success')
 def success():
     session_id = request.args.get('session_id')
+    if session_id:
+        payment = Payment.query.filter_by(stripe_checkout_session_id=session_id).first()
+        if payment:
+            payment.payment_status = 'paid'
+            db.session.commit()
+            
     return render_template('success.html', session_id=session_id)
 
 @main_bp.route('/cancel')
