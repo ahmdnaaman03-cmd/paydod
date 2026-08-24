@@ -1,31 +1,33 @@
 import stripe
-from flask import Blueprint, request, jsonify, current_app
-from app import db
-from app.models import Payment
+from flask import Blueprint, request, jsonify
+from app.db import get_db
 
-webhooks_bp = Blueprint('webhooks', __name__, url_prefix='/webhooks')
+webhooks_bp = Blueprint('webhooks', __name__)
 
-@webhooks_bp.route('/stripe', methods=['POST'])
+@webhooks_bp.route('/stripe/webhook', methods=['POST'])
 def stripe_webhook():
-    payload = request.get_data(as_text=True)
+    payload = request.data
     sig_header = request.headers.get('Stripe-Signature')
-    endpoint_secret = current_app.config.get('STRIPE_WEBHOOK_SECRET')
-
+    
     try:
-        if endpoint_secret:
-            event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
-        else:
-            event = stripe.Event.construct_from(request.get_json(), stripe.api_key)
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, stripe.webhook_secret
+        )
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
-        session_id = session.get('id')
-        
-        payment = Payment.query.filter_by(stripe_checkout_session_id=session_id).first()
-        if payment:
-            payment.payment_status = 'paid'
-            db.session.commit()
+        public_id = session.get('client_reference_id')
+        if public_id:
+            db = get_db()
+            db.execute(
+                "UPDATE payments SET payment_status = 'paid' WHERE public_id = ?",
+                (public_id,)
+            )
+            db.commit()
+            print(f"Payment success recorded for public_id: {public_id}")
+        else:
+            print("Error: client_reference_id not found in Stripe session")
 
     return jsonify({'status': 'success'}), 200
