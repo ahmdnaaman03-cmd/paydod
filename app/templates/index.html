@@ -55,3 +55,30 @@
     </script>
 </body>
 </html>
+
+<script>
+function startPaymentPolling(paymentId) {
+    if (!paymentId) return;
+    const pollInterval = setInterval(async () => {
+        try {
+            const res = await fetch(`/payments/status/${paymentId}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'paid') {
+                    clearInterval(pollInterval);
+                    const container = document.getElementById('status-container') || document.body;
+                    container.innerHTML = `
+                        <div style="background-color: #10B981; color: white; padding: 30px; border-radius: 16px; text-align: center; margin: 20px; font-family: sans-serif;">
+                            <h1 style="font-size: 32px; margin-bottom: 10px;">✅ تم الدفع بنجاح!</h1>
+                            <p style="font-size: 20px; margin: 0;">يمكنك تسليم الشحنة الآن للمشتري.</p>
+                            <small style="display:block; margin-top:15px; opacity: 0.8;">Shopify Sync: ${data.shopify_sync_status}</small>
+                        </div>
+                    `;
+                }
+            }
+        } catch (err) {
+            console.error("Polling error:", err);
+        }
+    }, 3000);
+}
+</script>
