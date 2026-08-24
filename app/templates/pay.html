@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" id="htmlPage">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PayDOD - Complete Payment / إتمام الدفع</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        :root { --bg: #070a14; --card: rgba(15, 23, 42, 0.85); --border: rgba(255, 255, 255, 0.1); --purple: #8b5cf6; --cyan: #00d4ff; }
+        body { margin: 0; padding: 20px; font-family: system-ui, sans-serif; background: var(--bg); color: #fff; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px 24px; width: 100%; max-width: 380px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); backdrop-filter: blur(12px); text-align: center; position: relative; }
+        .lang-btn { position: absolute; top: 16px; left: 16px; background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: var(--cyan); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        html[dir="ltr"] .lang-btn { left: auto; right: 16px; }
+        .brand { font-size: 28px; font-weight: 800; margin-bottom: 20px; }
+        .brand span.gradient { background: linear-gradient(135deg, var(--purple), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .order-box { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin: 20px 0; }
+        .amount { font-size: 34px; font-weight: 800; margin: 8px 0; color: var(--cyan); }
+        .btn-pay { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--cyan), #3b82f6); color: #070a14; border: none; border-radius: 8px; font-size: 16px; font-weight: 800; cursor: pointer; }
+        .status-paid { color: #10b981; font-weight: bold; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <button class="lang-btn" onclick="toggleLang()">English</button>
+        <div class="brand">Pay<span class="gradient">DOD</span></div>
+        <div class="order-box">
+            <div style="font-size: 13px; color: #94a3b8;"><span id="lbl_order_text">طلب رقم</span> #{{ payment.order_id }}</div>
+            <div class="amount">{{ payment.amount }} {{ payment.currency.upper() }}</div>
+        </div>
+        {% if payment.payment_status == 'paid' %}
+            <div class="status-paid" id="lbl_paid">تم إتمام الدفع بنجاح</div>
+        {% else %}
+            <button class="btn-pay" id="btn_pay" onclick="payWithStripe()">الدفع الآن بواسطة البطاقة</button>
+        {% endif %}
+    </div>
+    <script>
+        let currentLang = 'ar';
+        const t = {
+            ar: { btnLang: 'English', lblOrder: 'طلب رقم', btnPay: 'الدفع الآن بواسطة البطاقة', paidMsg: 'تم إتمام الدفع بنجاح', redirecting: 'جاري التوجيه...' },
+            en: { btnLang: 'عربي', lblOrder: 'Order #', btnPay: 'Pay Now with Card', paidMsg: 'Payment Completed Successfully', redirecting: 'Redirecting...' }
+        };
+
+        function toggleLang() {
+            currentLang = currentLang === 'ar' ? 'en' : 'ar';
+            const html = document.getElementById('htmlPage');
+            html.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+            html.lang = currentLang;
+            
+            document.querySelector('.lang-btn').innerText = t[currentLang].btnLang;
+            document.getElementById('lbl_order_text').innerText = t[currentLang].lblOrder;
+            const btnPay = document.getElementById('btn_pay');
+            if(btnPay) btnPay.innerText = t[currentLang].btnPay;
+            const lblPaid = document.getElementById('lbl_paid');
+            if(lblPaid) lblPaid.innerText = t[currentLang].paidMsg;
+        }
+
+        async function payWithStripe() {
+            const btn = document.getElementById('btn_pay');
+            btn.innerText = t[currentLang].redirecting;
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/create-checkout-session/{{ payment.public_id }}', { method: 'POST' });
+                const session = await res.json();
+                if (session.url) {
+                    window.location.href = session.url;
+                } else {
+                    alert('Error: ' + (session.error || 'Failed'));
+                    btn.innerText = t[currentLang].btnPay;
+                    btn.disabled = false;
+                }
+            } catch(e) {
+                alert('Connection Error');
+                btn.innerText = t[currentLang].btnPay;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
