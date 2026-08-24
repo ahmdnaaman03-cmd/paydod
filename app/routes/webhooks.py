@@ -1,6 +1,7 @@
 import stripe
 from flask import Blueprint, request, jsonify, current_app
-from app.models import db, Payment
+from app import db
+from app.models import Payment
 import pusher
 
 webhooks_bp = Blueprint('webhooks', __name__, url_prefix='/webhooks')
