@@ -15,17 +15,11 @@
 <body class="text-slate-100 min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md bg-[#111827] border border-slate-800/80 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
         <div class="flex justify-between items-center mb-6">
-            <button onclick="toggleLanguage()" id="langBtn" class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 font-semibold px-3 py-1.5 rounded-xl border border-slate-700 transition">
-                English
-            </button>
+            <button type="button" onclick="toggleLanguage()" id="langBtn" class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 font-semibold px-3 py-1.5 rounded-xl border border-slate-700 transition">English</button>
         </div>
         <div class="text-center mb-8">
-            <h1 class="text-4xl font-black tracking-tight mb-2">
-                Pay<span class="gradient-text">DOD</span>
-            </h1>
-            <p id="subTitle" class="text-slate-400 text-xs font-medium">
-                تحويل الدفع عند التسليم إلى دفع رقمي فوري
-            </p>
+            <h1 class="text-4xl font-black tracking-tight mb-2">Pay<span class="gradient-text">DOD</span></h1>
+            <p id="subTitle" class="text-slate-400 text-xs font-medium">تحويل الدفع عند التسليم إلى دفع رقمي فوري</p>
         </div>
         <form id="paymentForm" class="space-y-4">
             <div>
@@ -36,10 +30,7 @@
                 <label id="lblAmount" class="block text-xs font-medium text-slate-400 mb-1">المبلغ المطلوب</label>
                 <input type="number" step="0.01" id="amount" value="150" required class="w-full bg-[#0b0f19] border border-slate-800 rounded-2xl px-4 py-3 text-white text-center text-sm focus:outline-none focus:border-blue-500 transition">
             </div>
-            <input type="hidden" id="currency" value="USD">
-            <button type="submit" id="submitBtn" class="w-full gradient-btn hover:opacity-95 text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-indigo-500/20 text-sm mt-2">
-                إنشاء رابط الدفع
-            </button>
+            <button type="submit" id="submitBtn" class="w-full gradient-btn hover:opacity-95 text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-indigo-500/20 text-sm mt-2">إنشاء رابط الدفع</button>
         </form>
         <div id="resultBox" class="hidden mt-6 pt-6 border-t border-slate-800/80 space-y-4 text-center">
             <div class="bg-white p-3 rounded-2xl inline-block shadow-lg">
@@ -76,9 +67,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         shopify_order_name: document.getElementById('orderName').value, 
-                        shipment_id: 'SH-' + Date.now(), 
-                        amount: parseFloat(document.getElementById('amount').value), 
-                        currency: document.getElementById('currency').value 
+                        shipment_id: 'SHIP-' + Math.floor(Math.random() * 899999 + 100000), 
+                        amount: parseFloat(document.getElementById('amount').value)
                     })
                 });
                 const data = await res.json();
@@ -88,15 +78,9 @@
                     a.href = data.checkout_url; 
                     a.innerText = data.checkout_url; 
                     box.classList.remove('hidden'); 
-                } else {
-                    alert('Error: ' + (data.error || 'Failed'));
-                }
-            } catch (err) { 
-                alert('Connection error'); 
-            } finally { 
-                btn.disabled = false; 
-                btn.innerText = i18n[currentLang].btnSubmit; 
-            }
+                } else { alert('Error: ' + (data.error || 'Failed')); }
+            } catch (err) { alert('Connection error'); } 
+            finally { btn.disabled = false; btn.innerText = i18n[currentLang].btnSubmit; }
         });
     </script>
 </body>
