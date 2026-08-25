@@ -18,34 +18,52 @@
         input { width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 14px; box-sizing: border-box; outline: none; }
         button.submit-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--purple), #3b82f6); color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; }
         #result { margin-top: 18px; padding: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 8px; text-align: center; display: none; }
-        #qr-image { width: 200px; height: 200px; margin: 12px 0; border-radius: 8px; }
-        #result a { color: var(--cyan); text-decoration: none; font-weight: bold; word-break: break-all; font-size: 12px; display: block; }
+        #qr-image { width: 200px; height: 200px; margin: 15px auto; border-radius: 8px; display: block; border: 2px solid var(--purple); }
+        #result a { color: var(--cyan); text-decoration: none; font-weight: bold; word-break: break-all; font-size: 12px; display: block; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="card">
         <button class="lang-btn" onclick="toggleLang()">English</button>
         <div class="brand">Pay<span class="gradient">DOD</span></div>
-        <div class="tagline">Converting Cash-on-Delivery into Instant Digital Payments</div>
+        <div class="tagline" id="txt_tagline">تحويل الدفع عند الاستلام إلى دفع رقمي فوري</div>
 
         <form id="paymentForm">
             <div class="form-group">
-                <label id="lbl_order">رقم الطلب (Order ID)</label>
+                <label id="lbl_order">رقم الطلب</label>
                 <input type="text" id="order_id" required placeholder="1001">
             </div>
             <div class="form-group">
                 <label id="lbl_amount">المبلغ المطلوب</label>
                 <input type="number" step="0.01" id="amount" required placeholder="150">
             </div>
-            <button type="submit" class="submit-btn" id="btn_submit">إنشاء رابط الدفع و الـ QR</button>
+            <button type="submit" class="submit-btn" id="btn_submit">إنشاء رمز QR ورابط الدفع</button>
         </form>
         <div id="result"></div>
     </div>
     <script>
         let currentLang = 'ar';
         const t = {
-            ar: { btnLang: 'English', lblOrder: 'رقم الطلب (Order ID)', lblAmount: 'المبلغ المطلوب', btnSubmit: 'إنشاء رابط الدفع و الـ QR', creating: 'جاري الإنشاء...', successMsg: 'امسح الـ QR Code للدفع:' },
-            en: { btnLang: 'عربي', lblOrder: 'Order ID', lblAmount: 'Amount', btnSubmit: 'Create Payment Link & QR', creating: 'Creating...', successMsg: 'Scan QR Code to Pay:' }
+            ar: { 
+                btnLang: 'English', 
+                tagline: 'تحويل الدفع عند الاستلام إلى دفع رقمي فوري',
+                lblOrder: 'رقم الطلب', 
+                lblAmount: 'المبلغ المطلوب', 
+                btnSubmit: 'إنشاء رمز QR ورابط الدفع', 
+                creating: 'جاري الإنشاء...', 
+                successMsg: 'امسح رمز الـ QR للدفع:',
+                payLink: 'فتح رابط الدفع مباشرة'
+            },
+            en: { 
+                btnLang: 'عربي', 
+                tagline: 'Converting Cash-on-Delivery into Instant Digital Payments',
+                lblOrder: 'Order ID', 
+                lblAmount: 'Amount', 
+                btnSubmit: 'Generate QR Code & Payment Link', 
+                creating: 'Generating...', 
+                successMsg: 'Scan QR Code to Pay:',
+                payLink: 'Open Payment Link Directly'
+            }
         };
 
         function toggleLang() {
@@ -53,7 +71,9 @@
             const html = document.getElementById('htmlPage');
             html.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
             html.lang = currentLang;
+            
             document.querySelector('.lang-btn').innerText = t[currentLang].btnLang;
+            document.getElementById('txt_tagline').innerText = t[currentLang].tagline;
             document.getElementById('lbl_order').innerText = t[currentLang].lblOrder;
             document.getElementById('lbl_amount').innerText = t[currentLang].lblAmount;
             document.getElementById('btn_submit').innerText = t[currentLang].btnSubmit;
@@ -64,24 +84,30 @@
             const btn = document.getElementById('btn_submit');
             btn.innerText = t[currentLang].creating;
             btn.disabled = true;
+            
+            const orderId = document.getElementById('order_id').value;
+            const amount = document.getElementById('amount').value;
+
             try {
-                const res = await fetch('/api/create-payment', {
+                const res = await fetch('/api/payment-sessions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        amount: parseFloat(document.getElementById('amount').value),
-                        order_id: document.getElementById('order_id').value
+                        amount: amount,
+                        shopify_order_name: orderId,
+                        shipment_id: orderId
                     })
                 });
+                
                 const data = await res.json();
                 const resultDiv = document.getElementById('result');
                 resultDiv.style.display = 'block';
 
-                if (res.ok && data.success) {
+                if (res.ok && data.checkout_url && data.qr_url) {
                     resultDiv.innerHTML = `
-                        <strong>${t[currentLang].successMsg}</strong><br>
-                        <img id="qr-image" src="${data.qr_code}" alt="QR Code"><br>
-                        <a href="${data.payment_url}" target="_blank">${data.payment_url}</a>
+                        <strong style="color: #00d4ff;">${t[currentLang].successMsg}</strong><br>
+                        <img id="qr-image" src="${data.qr_url}" alt="QR Code"><br>
+                        <a href="${data.checkout_url}" target="_blank">${t[currentLang].payLink}</a>
                     `;
                 } else {
                     resultDiv.innerHTML = `<span style="color:#ef4444;">Error: ${data.error || 'Failed'}</span>`;
