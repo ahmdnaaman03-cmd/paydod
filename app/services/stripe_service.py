@@ -3,32 +3,33 @@ from flask import current_app
 
 class StripeService:
     @staticmethod
-    def create_checkout_session(payment_public_id, amount_minor, currency, shopify_order_name):
-        stripe.api_key = current_app.config['STRIPE_SECRET_KEY']
+    def create_checkout_session(amount, currency, reference_id):
+        stripe.api_key = current_app.config.get('STRIPE_SECRET_KEY')
         
-        # استخدام المتغير الثابت {CHECKOUT_SESSION_ID} كما تتطلب Stripe
-        success_url = f"{current_app.config['APP_BASE_URL']}/success?session_id={{CHECKOUT_SESSION_ID}}"
-        cancel_url = f"{current_app.config['APP_BASE_URL']}/cancel"
+        # Convert amount to smallest currency unit (e.g., cents)
+        unit_amount = int(amount * 100)
 
         session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
                 'price_data': {
-                    'currency': currency.lower(),
+                    'currency': currency,
                     'product_data': {
-                        'name': f'Pay DOD - Order {shopify_order_name}',
+                        'name': f'Order {reference_id}',
                     },
-                    'unit_amount': amount_minor,
+                    'unit_amount': unit_amount,
                 },
                 'quantity': 1,
             }],
             mode='payment',
-            success_url=success_url,
-            cancel_url=cancel_url,
-            client_reference_id=payment_public_id,
+            success_url='http://localhost:5000/success?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url='http://localhost:5000/cancel',
             metadata={
-                'payment_public_id': payment_public_id,
-                'shopify_order_name': shopify_order_name
+                'id_reference_client': reference_id
             }
         )
-        return session.url, session.id
+
+        return {
+            'session_id': session.id,
+            'checkout_url': session.url
+        }

@@ -1,27 +1,18 @@
-from app.extensions import db
 from datetime import datetime
-import uuid
+from app.extensions import db
 
 class Payment(db.Model):
     __tablename__ = 'payments'
-    
+
     id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
-    shipment_id = db.Column(db.String(100), nullable=False)
-    shopify_order_id = db.Column(db.String(100), nullable=False)
-    shopify_order_name = db.Column(db.String(100), nullable=False)
-    amount_minor = db.Column(db.Integer, nullable=False)
-    currency = db.Column(db.String(3), default='EGP')
-    
-    stripe_checkout_session_id = db.Column(db.String(100), unique=True, nullable=True)
-    stripe_payment_intent_id = db.Column(db.String(100), unique=True, nullable=True)
-    
-    # States
-    payment_status = db.Column(db.String(20), default='PENDING') # PENDING, PAID, FAILED, EXPIRED
-    shopify_sync_status = db.Column(db.String(20), default='NOT_STARTED') # NOT_STARTED, SYNCED, ERROR
-    
-    # Timestamps
+    id_reference_client = db.Column(db.String(100), unique=True, nullable=False)
+    id_session_stripe = db.Column(db.String(255), unique=True, nullable=True)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    currency = db.Column(db.String(10), default='USD', nullable=False)
+    status = db.Column(db.String(50), default='PENDING', nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     paid_at = db.Column(db.DateTime, nullable=True)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    last_error = db.Column(db.Text, nullable=True)
+    stripe_payment_intent_id = db.Column(db.String(255), nullable=True)
+
+    def __repr__(self):
+        return f'<Payment {self.id_reference_client} - {self.status}>'
