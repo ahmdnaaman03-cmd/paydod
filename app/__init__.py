@@ -1,24 +1,21 @@
 import os
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
 
-db = SQLAlchemy()
+# تحميل ملف .env صراحة من مسار المشروع
+basedir = os.path.abspath(os.path.dirname(__file__))
+load_dotenv(os.path.join(basedir, '../.env'))
 
 def create_app():
     app = Flask(__name__)
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev_key')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///paydod.db')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-    db.init_app(app)
-
+    
+    # ربط المفتاح بالـ Config
+    app.config['STRIPE_SECRET_KEY'] = os.getenv('STRIPE_SECRET_KEY')
+    
     from app.routes.main import main_bp
     from app.routes.webhooks import webhooks_bp
 
     app.register_blueprint(main_bp)
-    app.register_blueprint(webhooks_bp, url_prefix='/webhooks')
-
-    with app.app_context():
-        db.create_all()
+    app.register_blueprint(webhooks_bp)
 
     return app
