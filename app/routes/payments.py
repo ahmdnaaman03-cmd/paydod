@@ -1,51 +1,45 @@
-import uuid
-from decimal import Decimal, InvalidOperation
+import decimal
+import stripe
 from flask import Blueprint, request, jsonify, current_app
 from app.extensions import db
-from app.models.payment import Payment
-from app.services.stripe_service import StripeService
+from app.models import Payment
 from app.services.qr_service import QRService
+from app.services.stripe_service import StripeService
 
-bp_payments = Blueprint('payments', __name__, url_prefix='/api/payments')
+bp_payments = Blueprint('payments', __name__, url_prefix='/api')
 
-@bp_payments.route('/create', methods=['POST'])
+@bp_payments.route('/payments/create', methods=['POST'])
 def create_payment():
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({'error': 'Invalid or missing JSON'}), 400
-
-    raw_amount = data.get('amount')
-    currency = data.get('currency', 'USD')
-
-    if raw_amount is None:
-        return jsonify({'error': 'Amount is required'}), 400
+    data = request.get_json() or {}
+    amount_raw = data.get('amount')
+    
+    if not amount_raw:
+        return jsonify({'error': 'Invalid amount'}), 400
 
     try:
-        amount = Decimal(str(raw_amount))
-    except (InvalidOperation, TypeError, ValueError):
+        amount = decimal.Decimal(str(amount_raw))
+        if amount <= 0:
+            return jsonify({'error': 'Amount must be positive'}), 400
+    except (ValueError, TypeError, decimal.InvalidOperation):
         return jsonify({'error': 'Invalid amount format'}), 400
 
-    if amount <= 0:
-        return jsonify({'error': 'Amount must be greater than zero'}), 400
+    currency = data.get('currency', 'EGP')
+    id_reference_client = data.get('id_reference_client', 'REF-TEST')
 
-    id_reference_client = f"PAYDOD-{uuid.uuid4().hex[:12].upper()}"
-
-    # Create payment record as PENDING
-    payment = Payment(
-        id_reference_client=id_reference_client,
-        amount=amount,
-        currency=currency.upper(),
-        status='PENDING'
-    )
-    db.session.add(payment)
-    db.session.commit()
-
-    # Create Stripe Checkout Session
     try:
+        payment = Payment(
+            amount=amount,
+            currency=currency,
+            id_reference_client=id_reference_client,
+            status='PENDING'
+        )
+        db.session.add(payment)
+        db.session.commit()
+
         checkout_data = StripeService.create_checkout_session(
             amount=amount,
-            currency=currency.lower(),
-            reference_id=id_reference_client
+            currency=currency,
+            reference=id_reference_client
         )
         payment.id_session_stripe = checkout_data.get('session_id')
         db.session.commit()
@@ -67,3 +61,26 @@ def create_payment():
     except Exception as e:
         current_app.logger.error(f"Stripe session creation error: {str(e)}")
         return jsonify({'error': 'Unable to initialize payment gateway'}), 500
+
+
+@bp_payments.route('/webhooks/stripe', methods=['POST'])
+def stripe_webhook():
+    sig_header = request.headers.get('Stripe-Signature')
+    if not sig_header:
+        return jsonify({'error': 'Missing signature'}), 400
+
+    payload = request.get_data(as_text=True)
+    webhook_secret = current_app.config.get('STRIPE_WEBHOOK_SECRET', '')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, webhook_secret
+        )
+    except ValueError:
+        return jsonify({'error': 'Invalid payload'}), 400
+    except stripe.error.SignatureVerificationError:
+        return jsonify({'error': 'Invalid signature'}), 400
+    except Exception:
+        return jsonify({'error': 'Webhook verification failed'}), 400
+
+    return jsonify({'status': 'success'}), 200

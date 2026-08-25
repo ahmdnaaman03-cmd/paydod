@@ -1,21 +1,24 @@
+import os
 from flask import Flask
-from app.extensions import db
 from config import Config
+from app.extensions import db
 
-def create_app(config_class=Config):
-    app = Flask(__name__)
-    app.config.from_object(config_class)
+def create_app(test_config=None):
+    app = Flask(__name__, template_folder='templates', static_folder='static')
 
-    # Initialize extensions
+    if test_config is None:
+        app.config.from_object(Config)
+    elif isinstance(test_config, dict):
+        app.config.from_mapping(test_config)
+    else:
+        app.config.from_object(test_config)
+
     db.init_app(app)
 
-    # Register blueprints
-    from app.routes.main import bp_main
-    from app.routes.payments import bp_payments
-    from app.routes.webhooks import bp_webhooks
-
-    app.register_blueprint(bp_main)
-    app.register_blueprint(bp_payments)
-    app.register_blueprint(bp_webhooks)
+    with app.app_context():
+        from app.routes import main_bp, payments_bp
+        app.register_blueprint(main_bp)
+        app.register_blueprint(payments_bp)
+        db.create_all()
 
     return app

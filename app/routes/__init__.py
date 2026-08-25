@@ -1,5 +1,4 @@
-from .payments import bp_payments
-from .webhooks import bp_webhooks
-from .main import bp_main
+from app.routes.main import bp_main as main_bp
+from app.routes.payments import bp_payments as payments_bp
 
-__all__ = ['bp_payments', 'bp_webhooks', 'bp_main']
+__all__ = ['main_bp', 'payments_bp']
