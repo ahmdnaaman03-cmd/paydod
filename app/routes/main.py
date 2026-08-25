@@ -3,7 +3,6 @@ import stripe
 from flask import Blueprint, render_template, request, jsonify
 
 main_bp = Blueprint('main', __name__)
-
 stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
 
 @main_bp.route('/')
@@ -25,9 +24,7 @@ def create_payment_session():
             line_items=[{
                 'price_data': {
                     'currency': 'egp',
-                    'product_data': {
-                        'name': f'طلب رقم {order_id}',
-                    },
+                    'product_data': {'name': f'طلب رقم {order_id}'},
                     'unit_amount': int(float(amount) * 100),
                 },
                 'quantity': 1,
