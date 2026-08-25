@@ -20,6 +20,9 @@
         #result { margin-top: 18px; padding: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 8px; text-align: center; display: none; }
         #qr-image { width: 200px; height: 200px; margin: 15px auto; border-radius: 8px; display: block; border: 2px solid var(--purple); }
         #result a { color: var(--cyan); text-decoration: none; font-weight: bold; word-break: break-all; font-size: 12px; display: block; margin-top: 10px; }
+        .status-box { padding: 12px; border-radius: 8px; margin-top: 10px; font-weight: bold; }
+        .status-pending { background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid #eab308; }
+        .status-completed { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; font-size: 16px; }
     </style>
 </head>
 <body>
@@ -43,6 +46,8 @@
     </div>
     <script>
         let currentLang = 'ar';
+        let statusInterval = null;
+
         const t = {
             ar: { 
                 btnLang: 'English', 
@@ -52,7 +57,9 @@
                 btnSubmit: 'إنشاء رمز QR ورابط الدفع', 
                 creating: 'جاري الإنشاء...', 
                 successMsg: 'امسح رمز الـ QR للدفع:',
-                payLink: 'فتح رابط الدفع مباشرة'
+                payLink: 'فتح رابط الدفع مباشرة',
+                pendingStatus: '⏳ بانتظار الدفع من العميل...',
+                completedStatus: '✅ تم الدفع بنجاح! يمكن للمندوب المغادرة.'
             },
             en: { 
                 btnLang: 'عربي', 
@@ -62,7 +69,9 @@
                 btnSubmit: 'Generate QR Code & Payment Link', 
                 creating: 'Generating...', 
                 successMsg: 'Scan QR Code to Pay:',
-                payLink: 'Open Payment Link Directly'
+                payLink: 'Open Payment Link Directly',
+                pendingStatus: '⏳ Waiting for customer payment...',
+                completedStatus: '✅ Payment Successful! Courier can leave.'
             }
         };
 
@@ -77,6 +86,27 @@
             document.getElementById('lbl_order').innerText = t[currentLang].lblOrder;
             document.getElementById('lbl_amount').innerText = t[currentLang].lblAmount;
             document.getElementById('btn_submit').innerText = t[currentLang].btnSubmit;
+        }
+        function pollPaymentStatus(paymentId) {
+            if (statusInterval) clearInterval(statusInterval);
+            
+            statusInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/status/${paymentId}`);
+                    const data = await res.json();
+                    
+                    if (data.status === 'COMPLETED') {
+                        const statusContainer = document.getElementById('status-container');
+                        if (statusContainer) {
+                            statusContainer.className = 'status-box status-completed';
+                            statusContainer.innerText = t[currentLang].completedStatus;
+                        }
+                        clearInterval(statusInterval);
+                    }
+                } catch (e) {
+                    console.error("Polling error:", e);
+                }
+            }, 3000);
         }
 
         document.getElementById('paymentForm').addEventListener('submit', async (e) => {
@@ -108,7 +138,10 @@
                         <strong style="color: #00d4ff;">${t[currentLang].successMsg}</strong><br>
                         <img id="qr-image" src="${data.qr_url}" alt="QR Code"><br>
                         <a href="${data.checkout_url}" target="_blank">${t[currentLang].payLink}</a>
+                        <div id="status-container" class="status-box status-pending">${t[currentLang].pendingStatus}</div>
                     `;
+                    
+                    pollPaymentStatus(data.payment_id);
                 } else {
                     resultDiv.innerHTML = `<span style="color:#ef4444;">Error: ${data.error || 'Failed'}</span>`;
                 }
