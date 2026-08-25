@@ -13,11 +13,9 @@ def create_app():
     db.init_app(app)
 
     from app.routes.main import main_bp
-    from app.routes.api import api_bp
     from app.routes.webhooks import webhooks_bp
 
     app.register_blueprint(main_bp)
-    app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(webhooks_bp, url_prefix='/webhooks')
 
     with app.app_context():
