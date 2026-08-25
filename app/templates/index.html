@@ -3,82 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PayDOD - بوابة الدفع الذكية</title>
-    <style>
-        body { font-family: Tahoma, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; text-align: center; }
-        .card { background: #fff; max-width: 400px; margin: 40px auto; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        input, button { width: 100%; padding: 12px; margin: 10px 0; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
-        button { background: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background: #218838; }
-        #result { margin-top: 20px; display: none; }
-        img { max-width: 100%; height: auto; }
-    </style>
+    <title>PayDod</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Cairo', sans-serif; }</style>
 </head>
-<body>
-    <div class="card">
-        <h2>PayDOD - محاكي المندوب</h2>
-        <form id="paymentForm">
-            <input type="text" id="orderName" placeholder="رقم الطلب (مثال: #1001)" required>
-            <input type="text" id="shipmentId" placeholder="رقم الشحنة (Shipment ID)" required>
-            <input type="number" id="amount" placeholder="المبلغ (جنيه مصري)" step="0.01" required>
-            <button type="submit">إنشاء رابط و QR الدفع</button>
+<body class="bg-slate-950 text-white min-h-screen flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-6">
+        <div class="text-center space-y-1">
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">PayDod</h1>
+            <p class="text-slate-400 text-sm">محاكي المندوب - إنشاء رابط الدفع</p>
+        </div>
+        <form id="f" class="space-y-4">
+            <input type="text" id="o" required placeholder="رقم الطلب (#1001)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white">
+            <input type="number" id="a" required placeholder="المبلغ (جنيه)" step="0.01" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white">
+            <button type="submit" id="b" class="w-full bg-blue-600 hover:bg-blue-500 font-semibold p-3 rounded-xl transition">إنشاء رابط الدفع والـ QR</button>
         </form>
-        <div id="result">
-            <h3>قم بمسح كود الـ QR للدفع:</h3>
-            <img id="qrImg" src="" alt="QR Code">
-            <p><a id="checkoutLink" href="" target="_blank">أو اضغط هنا للانتقال لصفحة Stripe مباشرة</a></p>
+        <div id="r" class="hidden space-y-4 pt-4 border-t border-slate-800 text-center">
+            <div class="bg-white p-3 rounded-xl inline-block" id="q"></div>
+            <input type="text" id="u" readonly class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-slate-400">
         </div>
     </div>
-
     <script>
-        document.getElementById('paymentForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const orderName = document.getElementById('orderName').value;
-            const shipmentId = document.getElementById('shipmentId').value;
-            const amount = document.getElementById('amount').value;
-
-            const response = await fetch('/api/payment-sessions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ shopify_order_name: orderName, shipment_id: shipmentId, amount: amount })
-            });
-
-            const data = await response.json();
-            if (response.ok) {
-                document.getElementById('qrImg').src = data.qr_url;
-                document.getElementById('checkoutLink').href = data.checkout_url;
-                document.getElementById('result').style.display = 'block';
-            } else {
-                alert('خطأ: ' + data.error);
-            }
+        const f=document.getElementById('f'),b=document.getElementById('b'),r=document.getElementById('r'),q=document.getElementById('q'),u=document.getElementById('u');
+        f.addEventListener('submit',async(e)=>{
+            e.preventDefault();b.disabled=true;b.innerText='جاري الإنشاء...';
+            try{
+                const res=await fetch('/api/payment-sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order_id:document.getElementById('o').value,amount:document.getElementById('a').value})});
+                const d=await res.json();
+                if(res.ok&&d.checkout_url){q.innerHTML='';new QRCode(q,{text:d.checkout_url,width:160,height:160});u.value=d.checkout_url;r.classList.remove('hidden');}
+                else{alert(d.error||'خطأ');}
+            }catch(e){alert('Connection Error');}
+            finally{b.disabled=false;b.innerText='إنشاء رابط الدفع والـ QR';}
         });
     </script>
 </body>
 </html>
-
-<script>
-function startPaymentPolling(paymentId) {
-    if (!paymentId) return;
-    const pollInterval = setInterval(async () => {
-        try {
-            const res = await fetch(`/payments/status/${paymentId}`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.status === 'paid') {
-                    clearInterval(pollInterval);
-                    const container = document.getElementById('status-container') || document.body;
-                    container.innerHTML = `
-                        <div style="background-color: #10B981; color: white; padding: 30px; border-radius: 16px; text-align: center; margin: 20px; font-family: sans-serif;">
-                            <h1 style="font-size: 32px; margin-bottom: 10px;">✅ تم الدفع بنجاح!</h1>
-                            <p style="font-size: 20px; margin: 0;">يمكنك تسليم الشحنة الآن للمشتري.</p>
-                            <small style="display:block; margin-top:15px; opacity: 0.8;">Shopify Sync: ${data.shopify_sync_status}</small>
-                        </div>
-                    `;
-                }
-            }
-        } catch (err) {
-            console.error("Polling error:", err);
-        }
-    }, 3000);
-}
-</script>
