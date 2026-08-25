@@ -1,17 +1,24 @@
+import os
 from flask import Flask
-from config import Config
-from app.extensions import db
-from app.routes import payments_bp, webhooks_bp, main_bp
+from flask_sqlalchemy import SQLAlchemy
 
-def create_app(config_class=Config):
+db = SQLAlchemy()
+
+def create_app():
     app = Flask(__name__)
-    app.config.from_object(config_class)
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev_key')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///paydod.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
 
-    app.register_blueprint(payments_bp)
-    app.register_blueprint(webhooks_bp)
+    from app.routes.main import main_bp
+    from app.routes.api import api_bp
+    from app.routes.webhooks import webhooks_bp
+
     app.register_blueprint(main_bp)
+    app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(webhooks_bp, url_prefix='/webhooks')
 
     with app.app_context():
         db.create_all()
