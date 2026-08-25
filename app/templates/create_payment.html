@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PayDOD - Create Payment / إنشاء طلب دفع</title>
+    <title>PayDOD - Create Payment</title>
     <style>
         :root { --bg: #070a14; --card: rgba(15, 23, 42, 0.85); --border: rgba(255, 255, 255, 0.1); --purple: #8b5cf6; --cyan: #00d4ff; }
         body { margin: 0; padding: 20px; font-family: system-ui, sans-serif; background: var(--bg); color: #fff; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -17,8 +17,9 @@
         label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
         input { width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 14px; box-sizing: border-box; outline: none; }
         button.submit-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--purple), #3b82f6); color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; }
-        #result { margin-top: 18px; padding: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 8px; word-break: break-all; display: none; font-size: 13px; }
-        #result a { color: var(--cyan); text-decoration: none; font-weight: bold; }
+        #result { margin-top: 18px; padding: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 8px; text-align: center; display: none; }
+        #qr-image { width: 200px; height: 200px; margin: 12px 0; border-radius: 8px; }
+        #result a { color: var(--cyan); text-decoration: none; font-weight: bold; word-break: break-all; font-size: 12px; display: block; }
     </style>
 </head>
 <body>
@@ -26,7 +27,7 @@
         <button class="lang-btn" onclick="toggleLang()">English</button>
         <div class="brand">Pay<span class="gradient">DOD</span></div>
         <div class="tagline">Converting Cash-on-Delivery into Instant Digital Payments</div>
-        
+
         <form id="paymentForm">
             <div class="form-group">
                 <label id="lbl_order">رقم الطلب (Order ID)</label>
@@ -36,19 +37,15 @@
                 <label id="lbl_amount">المبلغ المطلوب</label>
                 <input type="number" step="0.01" id="amount" required placeholder="150">
             </div>
-            <div class="form-group">
-                <label id="lbl_curr">العملة</label>
-                <input type="text" id="currency" value="USD" required>
-            </div>
-            <button type="submit" class="submit-btn" id="btn_submit">إنشاء رابط الدفع</button>
+            <button type="submit" class="submit-btn" id="btn_submit">إنشاء رابط الدفع و الـ QR</button>
         </form>
         <div id="result"></div>
     </div>
     <script>
         let currentLang = 'ar';
         const t = {
-            ar: { btnLang: 'English', lblOrder: 'رقم الطلب (Order ID)', lblAmount: 'المبلغ المطلوب', lblCurr: 'العملة', btnSubmit: 'إنشاء رابط الدفع', creating: 'جاري الإنشاء...', successMsg: 'رابط الدفع:' },
-            en: { btnLang: 'عربي', lblOrder: 'Order ID', lblAmount: 'Amount', lblCurr: 'Currency', btnSubmit: 'Create Payment Link', creating: 'Creating...', successMsg: 'Payment Link:' }
+            ar: { btnLang: 'English', lblOrder: 'رقم الطلب (Order ID)', lblAmount: 'المبلغ المطلوب', btnSubmit: 'إنشاء رابط الدفع و الـ QR', creating: 'جاري الإنشاء...', successMsg: 'امسح الـ QR Code للدفع:' },
+            en: { btnLang: 'عربي', lblOrder: 'Order ID', lblAmount: 'Amount', btnSubmit: 'Create Payment Link & QR', creating: 'Creating...', successMsg: 'Scan QR Code to Pay:' }
         };
 
         function toggleLang() {
@@ -56,11 +53,9 @@
             const html = document.getElementById('htmlPage');
             html.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
             html.lang = currentLang;
-            
             document.querySelector('.lang-btn').innerText = t[currentLang].btnLang;
             document.getElementById('lbl_order').innerText = t[currentLang].lblOrder;
             document.getElementById('lbl_amount').innerText = t[currentLang].lblAmount;
-            document.getElementById('lbl_curr').innerText = t[currentLang].lblCurr;
             document.getElementById('btn_submit').innerText = t[currentLang].btnSubmit;
         }
 
@@ -75,15 +70,19 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         amount: parseFloat(document.getElementById('amount').value),
-                        currency: document.getElementById('currency').value,
                         order_id: document.getElementById('order_id').value
                     })
                 });
                 const data = await res.json();
                 const resultDiv = document.getElementById('result');
                 resultDiv.style.display = 'block';
-                if (res.ok) {
-                    resultDiv.innerHTML = `<strong>${t[currentLang].successMsg}</strong><br><br><a href="${data.payment_url}" target="_blank">${data.payment_url}</a>`;
+
+                if (res.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <strong>${t[currentLang].successMsg}</strong><br>
+                        <img id="qr-image" src="${data.qr_code}" alt="QR Code"><br>
+                        <a href="${data.payment_url}" target="_blank">${data.payment_url}</a>
+                    `;
                 } else {
                     resultDiv.innerHTML = `<span style="color:#ef4444;">Error: ${data.error || 'Failed'}</span>`;
                 }
