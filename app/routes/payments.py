@@ -12,7 +12,7 @@ bp_payments = Blueprint('payments', __name__, url_prefix='/api')
 def create_payment():
     data = request.get_json() or {}
     amount_raw = data.get('amount')
-    
+
     if not amount_raw:
         return jsonify({'error': 'Invalid amount'}), 400
 
@@ -62,7 +62,6 @@ def create_payment():
         current_app.logger.error(f"Stripe session creation error: {str(e)}")
         return jsonify({'error': 'Unable to initialize payment gateway'}), 500
 
-
 @bp_payments.route('/webhooks/stripe', methods=['POST'])
 def stripe_webhook():
     sig_header = request.headers.get('Stripe-Signature')
@@ -82,5 +81,17 @@ def stripe_webhook():
         return jsonify({'error': 'Invalid signature'}), 400
     except Exception:
         return jsonify({'error': 'Webhook verification failed'}), 400
+
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        session_id = session.get('id')
+        payment_status = session.get('payment_status')
+
+        if payment_status == 'paid':
+            payment = Payment.query.filter_by(id_session_stripe=session_id).first()
+            if payment and payment.status != 'SUCCESS':
+                payment.status = 'SUCCESS'
+                db.session.commit()
+                current_app.logger.info(f"Payment {payment.id} marked as SUCCESS via webhook.")
 
     return jsonify({'status': 'success'}), 200
