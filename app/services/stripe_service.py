@@ -5,14 +5,16 @@ from flask import current_app
 class StripeService:
     @staticmethod
     def get_stripe_key():
-        return os.environ.get('STRIPE_SECRET_KEY') or current_app.config.get('STRIPE_SECRET_KEY')
+        key = os.environ.get('STRIPE_SECRET_KEY') or current_app.config.get('STRIPE_SECRET_KEY')
+        if not key:
+            raise ValueError("STRIPE_SECRET_KEY is missing from environment/config")
+        return key
 
     @classmethod
     def create_checkout_session(cls, amount, currency='EGP', reference=''):
         stripe.api_key = cls.get_stripe_key()
         base_url = os.environ.get('APP_BASE_URL', 'https://Ahmdnoaman.pythonanywhere.com')
         
-        # تحويل المبلغ إلى قروش/سنتات كعدد صحيح تماماً لمنع خطأ Invalid integer
         unit_amount = int(round(float(amount) * 100))
         
         session = stripe.checkout.Session.create(
