@@ -16,9 +16,10 @@ def create_app(test_config=None):
     db.init_app(app)
 
     with app.app_context():
-        from app.routes import main_bp, payments_bp
+        from app.routes import main_bp, payments_bp, webhooks_bp
         app.register_blueprint(main_bp)
         app.register_blueprint(payments_bp)
+        app.register_blueprint(webhooks_bp)
         db.create_all()
 
     return app

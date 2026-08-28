@@ -1,5 +1,4 @@
 import decimal
-import stripe
 from flask import Blueprint, request, jsonify, current_app
 from app.extensions import db
 from app.models import Payment
@@ -26,6 +25,19 @@ def create_payment():
     currency = data.get('currency', 'EGP')
     id_reference_client = data.get('id_reference_client', 'REF-TEST')
 
+    existing_payment = Payment.query.filter_by(
+        id_reference_client=id_reference_client
+    ).first()
+    if existing_payment:
+        return jsonify({
+            'error': 'Payment reference already exists',
+            'message': 'Use a new shipment reference or continue the existing payment.',
+            'id_payment': existing_payment.id,
+            'id_reference_client': existing_payment.id_reference_client,
+            'status': existing_payment.status
+        }), 409
+
+    payment = None
     try:
         payment = Payment(
             amount=amount,
@@ -34,7 +46,7 @@ def create_payment():
             status='PENDING'
         )
         db.session.add(payment)
-        db.session.commit()
+        db.session.flush()
 
         checkout_data = StripeService.create_checkout_session(
             amount=amount,
@@ -59,38 +71,6 @@ def create_payment():
         }), 201
 
     except Exception as e:
+        db.session.rollback()
         current_app.logger.error(f"Stripe session creation error: {str(e)}")
-        return jsonify({'error': f"Stripe Gateway Error: {str(e)}"}), 500
-
-@bp_payments.route('/webhooks/stripe', methods=['POST'])
-def stripe_webhook():
-    sig_header = request.headers.get('Stripe-Signature')
-    if not sig_header:
-        return jsonify({'error': 'Missing signature'}), 400
-
-    payload = request.get_data(as_text=True)
-    webhook_secret = current_app.config.get('STRIPE_WEBHOOK_SECRET', '')
-
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, webhook_secret
-        )
-    except ValueError:
-        return jsonify({'error': 'Invalid payload'}), 400
-    except stripe.error.SignatureVerificationError:
-        return jsonify({'error': 'Invalid signature'}), 400
-    except Exception:
-        return jsonify({'error': 'Webhook verification failed'}), 400
-
-    if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        session_id = session.get('id')
-        payment_status = session.get('payment_status')
-
-        if payment_status == 'paid':
-            payment = Payment.query.filter_by(id_session_stripe=session_id).first()
-            if payment and payment.status != 'SUCCESS':
-                payment.status = 'SUCCESS'
-                db.session.commit()
-
-    return jsonify({'status': 'success'}), 200
+        return jsonify({'error': 'Stripe Gateway Error'}), 500

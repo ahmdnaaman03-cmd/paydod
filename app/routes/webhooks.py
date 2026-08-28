@@ -5,6 +5,7 @@ import stripe
 from app.extensions import db
 from app.models.payment import Payment
 from app.models.webhook_event import WebhookEvent
+from app.services.pusher_service import PusherService
 
 bp_webhooks = Blueprint('webhooks', __name__, url_prefix='/api/webhooks')
 
@@ -41,8 +42,10 @@ def stripe_webhook():
     if event_type == 'checkout.session.completed':
         session = event['data']['object']
         session_id = session.get('id')
-        metadata = session.get('metadata', {})
+        metadata = session.get('metadata') or {}
         reference_id = metadata.get('id_reference_client')
+        if not reference_id:
+            reference_id = session.get('client_reference_id')
         payment_intent_id = session.get('payment_intent')
 
         payment = Payment.query.filter_by(id_reference_client=reference_id).first()
@@ -53,6 +56,7 @@ def stripe_webhook():
             if not payment.id_session_stripe:
                 payment.id_session_stripe = session_id
             db.session.commit()
+            PusherService.notify_payment_status(payment.id, payment.status)
 
     # Record the processed event
     webhook_record = WebhookEvent(

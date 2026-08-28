@@ -30,8 +30,11 @@ class StripeService:
                 'quantity': 1,
             }],
             mode='payment',
-            success_url=f"{base_url}/api/payments/success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{base_url}/api/payments/cancel?session_id={{CHECKOUT_SESSION_ID}}",
+            metadata={
+                'id_reference_client': reference,
+            },
+            success_url=f"{base_url}/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base_url}/cancel?session_id={{CHECKOUT_SESSION_ID}}",
             client_reference_id=reference,
         )
         return {
