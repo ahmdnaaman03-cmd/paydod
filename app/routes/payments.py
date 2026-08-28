@@ -7,6 +7,20 @@ from app.services.stripe_service import StripeService
 
 bp_payments = Blueprint('payments', __name__, url_prefix='/api')
 
+@bp_payments.route('/payments/<int:payment_id>/status', methods=['GET'])
+def payment_status(payment_id):
+    payment = Payment.query.get(payment_id)
+    if not payment:
+        return jsonify({'error': 'Payment not found'}), 404
+    return jsonify({
+        'success': True,
+        'id_payment': payment.id,
+        'id_reference_client': payment.id_reference_client,
+        'status': payment.status,
+        'paid_at': payment.paid_at.isoformat() if payment.paid_at else None
+    }), 200
+
+
 @bp_payments.route('/payments/create', methods=['POST'])
 def create_payment():
     data = request.get_json() or {}
