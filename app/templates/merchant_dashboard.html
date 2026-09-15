@@ -5,10 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة تحكم PayDOD</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background: #f4f6f8; }
-        .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .btn { background: #2c2c2c; color: #fff; padding: 10px 15px; border: none; cursor: pointer; border-radius: 4px; }
-        input { width: 80%; padding: 10px; margin: 10px 0; }
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f4f6f8; margin: 0; }
+        .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .btn { background: #2c2c2c; color: #fff; padding: 10px 15px; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        input { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: right; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; }
+        .status-paid { color: green; font-weight: bold; }
+        .status-pending { color: orange; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -18,15 +23,42 @@
         <hr>
         <h3>الرابط المخصص للمناديب</h3>
         <p>أرسل هذا الرابط لمناديبك لتوليد رموز الدفع (QR):</p>
-        <input type="text" value="https://YOUR_DOMAIN.pythonanywhere.com/qr/{{ store_id }}" readonly id="storeLink">
+        <input type="text" value="https://ahmdnoaman.pythonanywhere.com/qr/{{ store_id }}" readonly id="storeLink">
         <button class="btn" onclick="copyLink()">نسخ الرابط</button>
     </div>
+
+    <div class="card">
+        <h3>سجل المدفوعات</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>رقم الطلب</th>
+                    <th>المبلغ</th>
+                    <th>حالة الدفع</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- هذا صف تجريبي حالياً لنعرض التصميم للتاجر -->
+                <tr>
+                    <td>#1024</td>
+                    <td>350.00 EGP</td>
+                    <td class="status-paid">تم الدفع ✓</td>
+                </tr>
+                <tr>
+                    <td>#1025</td>
+                    <td>120.00 EGP</td>
+                    <td class="status-pending">في الانتظار...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
     <script>
         function copyLink() {
             var copyText = document.getElementById("storeLink");
             copyText.select();
             document.execCommand("copy");
-            alert("تم النسخ بنجاح!");
+            alert("تم نسخ الرابط بنجاح! يمكنك إرساله للمناديب الآن.");
         }
     </script>
 </body>
