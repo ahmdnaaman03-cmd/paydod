@@ -18,3 +18,7 @@ def success():
 @bp_main.route('/cancel')
 def cancel():
     return render_template('cancel.html')
+
+@bp_main.route('/merchant/dashboard/<store_id>')
+def merchant_dashboard(store_id):
+    return render_template('merchant_dashboard.html', store_id=store_id)

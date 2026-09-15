@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم PayDOD</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f4f6f8; }
+        .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { background: #2c2c2c; color: #fff; padding: 10px 15px; border: none; cursor: pointer; border-radius: 4px; }
+        input { width: 80%; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>لوحة تحكم PayDOD</h2>
+        <p>حالة الربط: <strong style="color: green;">متصل بنجاح ✓</strong></p>
+        <hr>
+        <h3>الرابط المخصص للمناديب</h3>
+        <p>أرسل هذا الرابط لمناديبك لتوليد رموز الدفع (QR):</p>
+        <input type="text" value="https://YOUR_DOMAIN.pythonanywhere.com/qr/{{ store_id }}" readonly id="storeLink">
+        <button class="btn" onclick="copyLink()">نسخ الرابط</button>
+    </div>
+    <script>
+        function copyLink() {
+            var copyText = document.getElementById("storeLink");
+            copyText.select();
+            document.execCommand("copy");
+            alert("تم النسخ بنجاح!");
+        }
+    </script>
+</body>
+</html>
