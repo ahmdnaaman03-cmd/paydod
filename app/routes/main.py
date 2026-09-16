@@ -21,4 +21,5 @@ def cancel():
 
 @bp_main.route('/merchant/dashboard/<store_id>')
 def merchant_dashboard(store_id):
-    return render_template('merchant_dashboard.html', store_id=store_id)
+    payments = Payment.query.filter_by(store_id=store_id).all()
+    return render_template('merchant_dashboard.html', store_id=store_id, payments=payments)
