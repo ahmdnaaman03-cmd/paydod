@@ -96,8 +96,6 @@ def stripe_webhook():
     return jsonify({'status': 'success'}), 200
 
 @bp_payments.route('/payments/<int:payment_id>/status', methods=['GET'])
-def get_payment_status(payment_id):
-    payment = Payment.query.get_or_404(payment_id)
 
 @bp_payments.route('/payments/<int:payment_id>/status', methods=['GET'])
 def get_payment_status(payment_id):
