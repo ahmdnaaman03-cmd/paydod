@@ -13,7 +13,10 @@
         button { width: 100%; padding: 0.75rem; background: #2563eb; color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; }
         #result { margin-top: 1.5rem; text-align: center; display: none; }
         #qrImage { max-width: 200px; height: auto; margin: 1rem 0; }
-    </style>
+    .status-badge { padding: 0.5rem 1rem; border-radius: 99px; font-weight: bold; margin-bottom: 1rem; display: inline-block; }
+.status-pending { background: #fef08a; color: #854d0e; }
+.status-success { background: #bbf7d0; color: #166534; }
+</style>
 </head>
 <body>
     <div class="card">
@@ -30,6 +33,7 @@
             <button type="submit">إنشاء رمز QR والرابط</button>
         </form>
         <div id="result">
+<div id="paymentStatus" class="status-badge status-pending" dir="ltr">Status: PENDING</div>
             <h3>رمز QR للدفع:</h3>
             <img id="qrImage" src="" alt="QR Code">
             <div>
@@ -59,6 +63,22 @@
                 if (res.ok && data.success) {
                     document.getElementById('qrImage').src = data.url_qr;
                     document.getElementById('checkoutUrl').href = data.url_checkout;
+const badge = document.getElementById('paymentStatus');
+badge.textContent = 'Status: ' + data.status;
+badge.className = 'status-badge status-pending';
+let poll = setInterval(async () => {
+    try {
+        let r = await fetch('/api/payments/'+data.id_payment+'/status');
+        if(r.ok) {
+            let d = await r.json();
+            if(d.status === 'SUCCESS' || d.status === 'PAID') {
+                badge.textContent = 'Status: SUCCESS';
+                badge.className = 'status-badge status-success';
+                clearInterval(poll);
+            }
+        }
+    } catch(e) {}
+}, 3000);
                     resultDiv.style.display = 'block';
                 } else {
                     errorDiv.textContent = data.error || 'حدث خطأ أثناء إعداد الدفع';
