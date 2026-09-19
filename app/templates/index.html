@@ -68,7 +68,7 @@ badge.textContent = 'Status: ' + data.status;
 badge.className = 'status-badge status-pending';
 let poll = setInterval(async () => {
     try {
-        let r = await fetch('/api/payments/'+data.id_payment+'/status');
+        let r = await fetch('/api/payments/'+data.id_payment+'/status?t=' + new Date().getTime());
         if(r.ok) {
             let d = await r.json();
             if(d.status === 'SUCCESS' || d.status === 'PAID') {
