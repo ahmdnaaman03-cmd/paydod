@@ -1,24 +1,27 @@
-import os
-from flask import Flask
-from config import Config
-from app.extensions import db
+from flask import Flask, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from app.config import Config
+import stripe
 
-def create_app(test_config=None):
-    app = Flask(__name__, template_folder='templates', static_folder='static')
+db = SQLAlchemy()
 
-    if test_config is None:
-        app.config.from_object(Config)
-    elif isinstance(test_config, dict):
-        app.config.from_mapping(test_config)
-    else:
-        app.config.from_object(test_config)
+def create_app(config_class=Config):
+    app = Flask(__name__)
+    app.config.from_object(config_class)
 
     db.init_app(app)
+    stripe.api_key = app.config['STRIPE_SECRET_KEY']
 
-    with app.app_context():
-        from app.routes import main_bp, payments_bp
-        app.register_blueprint(main_bp)
-        app.register_blueprint(payments_bp)
-        db.create_all()
+    @app.route('/health', methods=['GET'])
+    def health_check():
+        return jsonify({"status": "healthy", "version": "1.0.0"}), 200
+
+    from app.routes.main import bp_main
+    from app.routes.payments import bp_payments
+    from app.routes.auth import bp_auth
+    
+    app.register_blueprint(bp_main)
+    app.register_blueprint(bp_payments)
+    app.register_blueprint(bp_auth)
 
     return app
