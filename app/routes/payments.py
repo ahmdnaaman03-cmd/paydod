@@ -64,26 +64,10 @@ def create_payment():
         return jsonify({'error': f"Stripe Gateway Error: {str(e)}"}), 500
 
 @bp_payments.route('/webhooks/stripe', methods=['POST'])
-def stripe_webhook_direct():
-    from flask import request, jsonify
-    try:
-        payload = request.get_json(force=True, silent=True)
-        if not payload:
-            import json
-            payload = json.loads(request.data.decode('utf-8'))
-            
-        event_type = payload.get('type') if payload else None
-        if event_type == 'checkout.session.completed':
-            session_obj = payload.get('data', {}).get('object', {})
-            ref = session_obj.get('client_reference_id')
-            if ref:
-                payment = Payment.query.filter_by(id_reference_client=ref).first()
-                if payment:
-                    payment.status = 'SUCCESS'
-                    db.session.commit()
-        return jsonify({'status': 'success'}), 200
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 200({'error': 'Missing signature'}), 400
+def stripe_webhook():
+    sig_header = request.headers.get('Stripe-Signature')
+    if not sig_header:
+        return jsonify({'error': 'Missing signature'}), 400
 
     payload = request.get_data(as_text=True)
     webhook_secret = current_app.config.get('STRIPE_WEBHOOK_SECRET', '')
@@ -126,19 +110,15 @@ def stripe_webhook_direct():
         payload = request.get_json(force=True, silent=True)
         if not payload:
             import json
-            payload = json.loads(request.data.decode('utf-8'))
+            payload = json.loads(request.data)
             
-        event_type = payload.get('type') if payload else None
-        if event_type == 'checkout.session.completed':
-            session_obj = payload.get('data', {}).get('object', {})
-            ref = session_obj.get('client_reference_id')
+        if payload and payload.get('type') == 'checkout.session.completed':
+            ref = payload.get('data', {}).get('object', {}).get('client_reference_id')
             if ref:
                 payment = Payment.query.filter_by(id_reference_client=ref).first()
-                if payment:
+                if payment and payment.status != 'SUCCESS':
                     payment.status = 'SUCCESS'
-                    db.session.commit()
-        return jsonify({'status': 'success'}), 200
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 200({'success': True}), 200
+                    Payment.query.session.commit()
+        return jsonify({'success': True}), 200
     except Exception as e:
         return jsonify({'success': False}), 200
