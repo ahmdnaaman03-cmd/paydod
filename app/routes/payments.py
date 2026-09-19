@@ -31,7 +31,8 @@ def create_payment():
             amount=amount,
             currency=currency,
             id_reference_client=id_reference_client,
-            status='PENDING'
+            status='PENDING',
+            store_id=data.get('store_id')
         )
         db.session.add(payment)
         db.session.commit()

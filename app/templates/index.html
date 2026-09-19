@@ -50,6 +50,8 @@
             errorDiv.textContent = '';
             resultDiv.style.display = 'none';
 
+            const urlParams = new URLSearchParams(window.location.search);
+            const storeId = urlParams.get('store_id') || 'test-store';
             const amount = document.getElementById('amount').value;
             const reference = document.getElementById('reference').value || 'REF-' + Date.now();
 
@@ -57,7 +59,7 @@
                 const res = await fetch('/api/payments/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount: amount, currency: 'EGP', id_reference_client: reference })
+                    body: JSON.stringify({ amount: amount, currency: 'EGP', id_reference_client: reference, store_id: storeId })
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {
