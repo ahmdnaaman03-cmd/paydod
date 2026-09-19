@@ -102,3 +102,23 @@ def stripe_webhook():
 def get_payment_status(payment_id):
     payment = Payment.query.get_or_404(payment_id)
     return jsonify({'status': payment.status}), 200
+
+@bp_payments.route('/webhooks/stripe', methods=['POST'])
+def stripe_webhook_direct():
+    from flask import request, jsonify
+    try:
+        payload = request.get_json(force=True, silent=True)
+        if not payload:
+            import json
+            payload = json.loads(request.data)
+            
+        if payload and payload.get('type') == 'checkout.session.completed':
+            ref = payload.get('data', {}).get('object', {}).get('client_reference_id')
+            if ref:
+                payment = Payment.query.filter_by(id_reference_client=ref).first()
+                if payment and payment.status != 'SUCCESS':
+                    payment.status = 'SUCCESS'
+                    Payment.query.session.commit()
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'success': False}), 200
