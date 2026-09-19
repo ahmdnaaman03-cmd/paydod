@@ -19,9 +19,11 @@ def create_app(config_class=Config):
     from app.routes.main import bp_main
     from app.routes.payments import bp_payments
     from app.routes.auth import bp_auth
+    from app.routes.gdpr import bp_gdpr
     
     app.register_blueprint(bp_main)
     app.register_blueprint(bp_payments)
     app.register_blueprint(bp_auth)
+    app.register_blueprint(bp_gdpr)
 
     return app
