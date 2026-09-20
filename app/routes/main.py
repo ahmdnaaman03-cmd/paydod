@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, current_app
 from app.models.payment import Payment
 
 bp_main = Blueprint('main', __name__)
@@ -21,5 +21,9 @@ def cancel():
 
 @bp_main.route('/merchant/dashboard/<store_id>')
 def merchant_dashboard(store_id):
+    # جلب جميع مدفوعات المتجر لفرزها حسب المندوب
     payments = Payment.query.filter_by(store_id=store_id).all()
-    return render_template('merchant_dashboard.html', store_id=store_id, payments=payments)
+    # جلب مفتاح التطبيق لتهيئة App Bridge
+    api_key = current_app.config.get('SHOPIFY_API_KEY')
+    
+    return render_template('merchant_dashboard.html', store_id=store_id, payments=payments, api_key=api_key)

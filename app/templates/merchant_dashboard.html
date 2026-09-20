@@ -3,50 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PayDOD - لوحة تحكم التاجر</title>
+    <title>لوحة تحكم PayDOD</title>
+    <!-- تضمين مكتبة Shopify App Bridge الإجبارية للقبول -->
+    <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
+    <script>
+        var AppBridge = window['app-bridge'];
+        var createApp = AppBridge.default;
+        
+        // استخراج معامل host الذي يرسله Shopify آلياً في الرابط
+        var host = new URLSearchParams(location.search).get("host");
+        
+        if (host) {
+            var app = createApp({
+                apiKey: '{{ api_key }}',
+                host: host,
+                forceRedirect: true
+            });
+        }
+    </script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; color: #333; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
-        h2 { border-bottom: 2px solid #28a745; padding-bottom: 10px; margin-bottom: 20px; }
-        .stats { display: flex; gap: 15px; margin-bottom: 20px; }
-        .stat-box { flex: 1; background: #e9ecef; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.1em; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; border-bottom: 1px solid #ddd; text-align: right; }
-        th { background-color: #28a745; color: white; }
-        tr:hover { background-color: #f1f1f1; }
-        .status-PENDING { color: #f39c12; font-weight: bold; }
-        .status-PAID { color: #28a745; font-weight: bold; }
-        .status-CANCELLED { color: #dc3545; font-weight: bold; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background-color: #f4f6f8; }
+        .container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+        h2 { color: #202223; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border-bottom: 1px solid #dfe3e8; padding: 12px; text-align: right; }
+        th { background-color: #f9fafb; color: #6d7175; font-weight: 600; }
+        .status-success { color: #008060; font-weight: bold; background: #e3f1df; padding: 4px 8px; border-radius: 4px; }
+        .status-pending { color: #8a6116; font-weight: bold; background: #ffea8a; padding: 4px 8px; border-radius: 4px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>لوحة تحكم المتجر رقم: {{ store_id }}</h2>
-        
-        <div class="stats">
-            <div class="stat-box">إجمالي العمليات: {{ payments|length }}</div>
-        </div>
-
+        <h2>مراقبة التحصيلات الحية (PayDOD)</h2>
         <table>
             <thead>
                 <tr>
-                    <th>مرجع الطلب</th>
+                    <th>المرجع (رقم الطلب)</th>
+                    <th>كود المندوب</th>
                     <th>المبلغ</th>
-                    <th>تاريخ الإنشاء</th>
-                    <th>الحالة</th>
+                    <th>حالة الدفع</th>
                 </tr>
             </thead>
             <tbody>
                 {% for payment in payments %}
                 <tr>
                     <td>{{ payment.id_reference_client }}</td>
+                    <td>{{ payment.delivery_agent_id or 'غير محدد' }}</td>
                     <td>{{ payment.amount }} {{ payment.currency }}</td>
-                    <td dir="ltr" style="text-align: right;">{{ payment.created_at.strftime('%Y-%m-%d %H:%M') if payment.created_at else '-' }}</td>
-                    <td class="status-{{ payment.status }}">{{ payment.status }}</td>
+                    <td>
+                        <span class="{% if payment.status == 'SUCCESS' %}status-success{% else %}status-pending{% endif %}">
+                            {{ payment.status }}
+                        </span>
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" style="text-align: center; padding: 20px;">لا توجد عمليات مسجلة لهذا المتجر حتى الآن.</td>
+                    <td colspan="4" style="text-align: center; color: #6d7175;">لا توجد عمليات تحصيل مسجلة حتى الآن.</td>
                 </tr>
                 {% endfor %}
             </tbody>
