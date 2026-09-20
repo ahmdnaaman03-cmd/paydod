@@ -1,8 +1,8 @@
 import decimal
-import stripe
-from flask import Blueprint, request, jsonify, current_app
+import traceback
+from flask import Blueprint, request, jsonify
 from app.extensions import db
-from app.models import Payment
+from app.models.payment import Payment
 from app.services.qr_service import QRService
 from app.services.stripe_service import StripeService
 
@@ -10,115 +10,53 @@ bp_payments = Blueprint('payments', __name__, url_prefix='/api')
 
 @bp_payments.route('/payments/create', methods=['POST'])
 def create_payment():
-    data = request.get_json() or {}
-    amount_raw = data.get('amount')
-
-    if not amount_raw:
-        return jsonify({'error': 'Invalid amount'}), 400
-
     try:
+        data = request.get_json() or {}
+        amount_raw = data.get('amount')
+        id_reference_client = data.get('id_reference_client')
+        store_id = data.get('store_id')
+
+        if not amount_raw or not id_reference_client:
+            return jsonify({'error': 'Missing amount or reference'}), 400
+
+        if not store_id:
+            return jsonify({'error': 'عذراً، يجب إرسال معرف المتجر'}), 400
+
         amount = decimal.Decimal(str(amount_raw))
         if amount <= 0:
             return jsonify({'error': 'Amount must be positive'}), 400
-    except (ValueError, TypeError, decimal.InvalidOperation):
-        return jsonify({'error': 'Invalid amount format'}), 400
 
-    currency = data.get('currency', 'EGP')
-    id_reference_client = data.get('id_reference_client', 'REF-TEST')
-
-    try:
-        payment = Payment(
-            amount=amount,
-            currency=currency,
-            id_reference_client=id_reference_client,
-            status='PENDING',
-            store_id=data.get('store_id')
-        )
-        db.session.add(payment)
-        db.session.commit()
+        payment = Payment.query.filter_by(id_reference_client=id_reference_client).first()
+        if not payment:
+            payment = Payment(
+                amount=amount,
+                currency=data.get('currency', 'EGP'),
+                id_reference_client=id_reference_client,
+                status='PENDING',
+                store_id=store_id
+            )
+            db.session.add(payment)
+            db.session.commit()
+        elif payment.status == 'SUCCESS':
+            return jsonify({'error': 'Order already paid'}), 400
+        else:
+            payment.amount = amount
+            db.session.commit()
 
         checkout_data = StripeService.create_checkout_session(
             amount=amount,
-            currency=currency,
+            currency='EGP',
             reference=id_reference_client
         )
-        payment.id_session_stripe = checkout_data.get('session_id')
-        db.session.commit()
-
-        checkout_url = checkout_data.get('checkout_url')
-        qr_url = QRService.generate_qr_data_url(checkout_url)
+        
+        qr_code_data = QRService.generate_qr_data_url(checkout_data['checkout_url'])
 
         return jsonify({
-            'success': True,
-            'id_payment': payment.id,
-            'id_reference_client': id_reference_client,
-            'url_checkout': checkout_url,
-            'url_qr': qr_url,
-            'amount': str(amount),
-            'currency': payment.currency,
-            'status': payment.status
-        }), 201
+            'checkout_url': checkout_data['checkout_url'],
+            'qr_code': qr_code_data
+        }), 200
 
     except Exception as e:
-        current_app.logger.error(f"Stripe session creation error: {str(e)}")
-        return jsonify({'error': f"Stripe Gateway Error: {str(e)}"}), 500
-
-@bp_payments.route('/webhooks/stripe', methods=['POST'])
-def stripe_webhook():
-    sig_header = request.headers.get('Stripe-Signature')
-    if not sig_header:
-        return jsonify({'error': 'Missing signature'}), 400
-
-    payload = request.get_data(as_text=True)
-    webhook_secret = current_app.config.get('STRIPE_WEBHOOK_SECRET', '')
-
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, webhook_secret
-        )
-    except ValueError:
-        return jsonify({'error': 'Invalid payload'}), 400
-    except stripe.error.SignatureVerificationError:
-        return jsonify({'error': 'Invalid signature'}), 400
-    except Exception:
-        return jsonify({'error': 'Webhook verification failed'}), 400
-
-    if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        session_id = session.get('id')
-        payment_status = session.get('payment_status')
-
-        if payment_status == 'paid':
-            payment = Payment.query.filter_by(id_session_stripe=session_id).first()
-            if payment and payment.status != 'SUCCESS':
-                payment.status = 'SUCCESS'
-                db.session.commit()
-
-    return jsonify({'status': 'success'}), 200
-
-@bp_payments.route('/payments/<int:payment_id>/status', methods=['GET'])
-
-@bp_payments.route('/payments/<int:payment_id>/status', methods=['GET'])
-def get_payment_status(payment_id):
-    payment = Payment.query.get_or_404(payment_id)
-    return jsonify({'status': payment.status}), 200
-
-@bp_payments.route('/webhooks/stripe', methods=['POST'])
-def stripe_webhook_direct():
-    from flask import request, jsonify
-    try:
-        payload = request.get_json(force=True, silent=True)
-        if not payload:
-            import json
-            payload = json.loads(request.data)
-            
-        if payload and payload.get('type') == 'checkout.session.completed':
-            ref = payload.get('data', {}).get('object', {}).get('client_reference_id')
-            if ref:
-                payment = Payment.query.filter_by(id_reference_client=ref).first()
-                if payment and payment.status != 'SUCCESS':
-                    payment.status = 'SUCCESS'
-                    Payment.query.session.commit()
-        return jsonify({'success': True}), 200
-    except Exception as e:
-        return jsonify({'success': False}), 200
+        db.session.rollback()
+        print(f"Payment Error: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500

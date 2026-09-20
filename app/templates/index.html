@@ -12,55 +12,72 @@
         button { background: #2c6ecb; color: white; border: none; font-weight: bold; cursor: pointer; }
         #qr-container { margin-top: 20px; }
         .success-msg { color: #008060; font-size: 24px; font-weight: bold; margin-top: 20px; padding: 20px; background: #e3f1df; border-radius: 8px; display: none; }
+        .error-msg { color: #d82c0d; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>إصدار رابط الدفع</h2>
-        <input type="number" id="amount" placeholder="المبلغ (EGP)" required>
-        <input type="text" id="reference" placeholder="رقم الطلب (مثال: 1025)" required>
-        <button onclick="generateQR()">إنشاء الـ QR</button>
+        <div id="setup-error" class="error-msg" style="display: none; margin-bottom: 15px;">
+            عذراً، هذا الرابط غير صالح. يرجى الحصول على الرابط الصحيح للمندوبين.
+        </div>
+        <div id="form-container">
+            <input type="number" id="amount" placeholder="المبلغ (EGP)" required>
+            <input type="text" id="reference" placeholder="رقم الطلب (مثال: 1025)" required>
+            <button onclick="generateQR()">إنشاء الـ QR</button>
+        </div>
         
         <div id="qr-container"></div>
         <div id="success-message" class="success-msg">✅ تم الدفع بنجاح! يمكنك الانصراف.</div>
     </div>
-
     <script>
-        // تهيئة Pusher باستخدام المفاتيح العامة الممررة من السيرفر
+        const urlParams = new URLSearchParams(window.location.search);
+        const storeId = urlParams.get('store_id');
+
+        if (!storeId) {
+            document.getElementById('form-container').style.display = 'none';
+            document.getElementById('setup-error').style.display = 'block';
+        }
+
         var pusher = new Pusher('{{ config.PUSHER_KEY }}', {
             cluster: '{{ config.PUSHER_CLUSTER }}'
         });
 
         async function generateQR() {
+            if (!storeId) return;
+
             const amount = document.getElementById('amount').value;
             const reference = document.getElementById('reference').value;
             const qrContainer = document.getElementById('qr-container');
             
             qrContainer.innerHTML = 'جاري الإنشاء...';
             
-            const response = await fetch('/api/payments/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: amount, id_reference_client: reference })
-            });
-            
-            const data = await response.json();
-            
-            if (data.qr_code) {
-                qrContainer.innerHTML = `<img src="${data.qr_code}" alt="QR Code" style="max-width: 100%; border-radius: 8px;">
-                                         <p><a href="${data.checkout_url}" target="_blank">فتح الرابط مباشرة</a></p>`;
-                
-                // الاستماع اللحظي لقناة الدفع الخاصة بهذا الطلب تحديداً
-                var channel = pusher.subscribe('payment-' + reference);
-                channel.bind('status_update', function(pusherData) {
-                    if (pusherData.status === 'SUCCESS') {
-                        qrContainer.style.display = 'none';
-                        document.getElementById('success-message').style.display = 'block';
-                        pusher.unsubscribe('payment-' + reference);
-                    }
+            try {
+                const response = await fetch('/api/payments/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: amount, id_reference_client: reference, store_id: storeId })
                 });
-            } else {
-                qrContainer.innerHTML = '<span style="color:red">حدث خطأ أثناء الإنشاء</span>';
+                
+                const data = await response.json();
+                
+                if (data.qr_code) {
+                    qrContainer.innerHTML = `<img src="${data.qr_code}" alt="QR Code" style="max-width: 100%; border-radius: 8px;">
+                                             <p><a href="${data.checkout_url}" target="_blank">فتح الرابط مباشرة</a></p>`;
+                    
+                    var channel = pusher.subscribe('payment-' + reference);
+                    channel.bind('status_update', function(pusherData) {
+                        if (pusherData.status === 'SUCCESS') {
+                            qrContainer.style.display = 'none';
+                            document.getElementById('success-message').style.display = 'block';
+                            pusher.unsubscribe('payment-' + reference);
+                        }
+                    });
+                } else {
+                    qrContainer.innerHTML = `<span style="color:red">${data.error || 'حدث خطأ'}</span>`;
+                }
+            } catch (error) {
+                qrContainer.innerHTML = '<span style="color:red">خطأ في الاتصال بالخادم.</span>';
             }
         }
     </script>
