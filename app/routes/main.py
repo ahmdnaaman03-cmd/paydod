@@ -15,10 +15,21 @@ def index():
             if store:
                 return redirect(url_for('main.merchant_dashboard', store_id=store.id, host=host))
             return redirect(url_for('auth.install', shop=shop))
-            
         return render_template('index.html', config=current_app.config)
     except Exception as e:
         return f"<pre>Index Error:\n{traceback.format_exc()}</pre>", 500
+
+@bp_main.route('/success')
+def success():
+    session_id = request.args.get('session_id')
+    payment = None
+    if session_id:
+        payment = Payment.query.filter_by(id_session_stripe=session_id).first()
+    return render_template('success.html', payment=payment)
+
+@bp_main.route('/cancel')
+def cancel():
+    return render_template('cancel.html')
 
 @bp_main.route('/merchant/dashboard/<int:store_id>')
 def merchant_dashboard(store_id):
