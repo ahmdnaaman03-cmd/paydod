@@ -1,16 +1,17 @@
 from flask import Flask, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from app.config import Config
+from app.extensions import db
 import stripe
-
-db = SQLAlchemy()
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
     db.init_app(app)
-    stripe.api_key = app.config['STRIPE_SECRET_KEY']
+    
+    stripe_key = app.config.get('STRIPE_SECRET_KEY')
+    if stripe_key:
+        stripe.api_key = stripe_key
 
     @app.route('/health', methods=['GET'])
     def health_check():
