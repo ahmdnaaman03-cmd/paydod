@@ -3,92 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pay DOD - إنشاء دفع</title>
+    <title>PayDOD - المندوب</title>
+    <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
     <style>
-        body { font-family: system-ui, sans-serif; margin: 2rem; background: #f4f4f5; color: #18181b; }
-        .card { max-width: 480px; margin: 0 auto; background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .field { margin-bottom: 1rem; }
-        label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
-        input { width: 100%; padding: 0.5rem; border: 1px solid #d4d4d8; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 0.75rem; background: #2563eb; color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; }
-        #result { margin-top: 1.5rem; text-align: center; display: none; }
-        #qrImage { max-width: 200px; height: auto; margin: 1rem 0; }
-    .status-badge { padding: 0.5rem 1rem; border-radius: 99px; font-weight: bold; margin-bottom: 1rem; display: inline-block; }
-.status-pending { background: #fef08a; color: #854d0e; }
-.status-success { background: #bbf7d0; color: #166534; }
-</style>
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; background: #f4f6f8; text-align: center; }
+        .container { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+        input, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+        button { background: #2c6ecb; color: white; border: none; font-weight: bold; cursor: pointer; }
+        #qr-container { margin-top: 20px; }
+        .success-msg { color: #008060; font-size: 24px; font-weight: bold; margin-top: 20px; padding: 20px; background: #e3f1df; border-radius: 8px; display: none; }
+    </style>
 </head>
 <body>
-    <div class="card">
-        <h2>DOD - الدفع الرقمي عند التسليم</h2>
-        <form id="paymentForm">
-            <div class="field">
-                <label for="amount">المبلغ (EGP)</label>
-                <input type="number" id="amount" step="0.01" required placeholder="10.00">
-            </div>
-            <div class="field">
-                <label for="reference">مرجع الطلب</label>
-                <input type="text" id="reference" placeholder="PAYDOD-REF-001">
-            </div>
-            <button type="submit">إنشاء رمز QR والرابط</button>
-        </form>
-        <div id="result">
-<div id="paymentStatus" class="status-badge status-pending" dir="ltr">Status: PENDING</div>
-            <h3>رمز QR للدفع:</h3>
-            <img id="qrImage" src="" alt="QR Code">
-            <div>
-                <a id="checkoutUrl" href="" target="_blank" rel="noopener">الانتقال إلى صفحة Stripe للدفع</a>
-            </div>
-        </div>
-        <div id="error" style="color: red; margin-top: 1rem; text-align: center;"></div>
+    <div class="container">
+        <h2>إصدار رابط الدفع</h2>
+        <input type="number" id="amount" placeholder="المبلغ (EGP)" required>
+        <input type="text" id="reference" placeholder="رقم الطلب (مثال: 1025)" required>
+        <button onclick="generateQR()">إنشاء الـ QR</button>
+        
+        <div id="qr-container"></div>
+        <div id="success-message" class="success-msg">✅ تم الدفع بنجاح! يمكنك الانصراف.</div>
     </div>
+
     <script>
-        document.getElementById('paymentForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const errorDiv = document.getElementById('error');
-            const resultDiv = document.getElementById('result');
-            errorDiv.textContent = '';
-            resultDiv.style.display = 'none';
+        // تهيئة Pusher باستخدام المفاتيح العامة الممررة من السيرفر
+        var pusher = new Pusher('{{ config.PUSHER_KEY }}', {
+            cluster: '{{ config.PUSHER_CLUSTER }}'
+        });
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const storeId = urlParams.get('store_id') || 'test-store';
+        async function generateQR() {
             const amount = document.getElementById('amount').value;
-            const reference = document.getElementById('reference').value || 'REF-' + Date.now();
-
-            try {
-                const res = await fetch('/api/payments/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount: amount, currency: 'EGP', id_reference_client: reference, store_id: storeId })
+            const reference = document.getElementById('reference').value;
+            const qrContainer = document.getElementById('qr-container');
+            
+            qrContainer.innerHTML = 'جاري الإنشاء...';
+            
+            const response = await fetch('/api/payments/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: amount, id_reference_client: reference })
+            });
+            
+            const data = await response.json();
+            
+            if (data.qr_code) {
+                qrContainer.innerHTML = `<img src="${data.qr_code}" alt="QR Code" style="max-width: 100%; border-radius: 8px;">
+                                         <p><a href="${data.checkout_url}" target="_blank">فتح الرابط مباشرة</a></p>`;
+                
+                // الاستماع اللحظي لقناة الدفع الخاصة بهذا الطلب تحديداً
+                var channel = pusher.subscribe('payment-' + reference);
+                channel.bind('status_update', function(pusherData) {
+                    if (pusherData.status === 'SUCCESS') {
+                        qrContainer.style.display = 'none';
+                        document.getElementById('success-message').style.display = 'block';
+                        pusher.unsubscribe('payment-' + reference);
+                    }
                 });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    document.getElementById('qrImage').src = data.url_qr;
-                    document.getElementById('checkoutUrl').href = data.url_checkout;
-const badge = document.getElementById('paymentStatus');
-badge.textContent = 'Status: ' + data.status;
-badge.className = 'status-badge status-pending';
-let poll = setInterval(async () => {
-    try {
-        let r = await fetch('/api/payments/'+data.id_payment+'/status?t=' + new Date().getTime());
-        if(r.ok) {
-            let d = await r.json();
-            if(d.status === 'SUCCESS' || d.status === 'PAID') {
-                badge.textContent = 'Status: SUCCESS';
-                badge.className = 'status-badge status-success';
-                clearInterval(poll);
+            } else {
+                qrContainer.innerHTML = '<span style="color:red">حدث خطأ أثناء الإنشاء</span>';
             }
         }
-    } catch(e) {}
-}, 3000);
-                    resultDiv.style.display = 'block';
-                } else {
-                    errorDiv.textContent = data.error || 'حدث خطأ أثناء إعداد الدفع';
-                }
-            } catch (err) {
-                errorDiv.textContent = 'فشل الاتصال بالخادم';
-            }
-        });
     </script>
 </body>
 </html>
