@@ -16,8 +16,8 @@ class PusherService:
     def notify_payment_status(payment_public_id, status):
         try:
             client = PusherService.get_client()
-            channel_name = f'payment-{payment_public_id}'
+            clean_id = str(payment_public_id).replace('#', '').strip()
+            channel_name = f'payment-{clean_id}'
             client.trigger(channel_name, 'status_update', {'status': status})
         except Exception as e:
-            # يتم تسجيل الخطأ دون إيقاف الويب هوك
             print(f"Pusher notification failed: {str(e)}")
